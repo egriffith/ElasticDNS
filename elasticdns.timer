@@ -1,0 +1,8 @@
+[Unit]
+Description=Runs the ElasticDNS script every five minutes.
+
+[Timer]
+OnCalendar=* 00:0/5:00
+
+[Install]
+WantedBy=multi-user.target
