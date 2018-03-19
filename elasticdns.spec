@@ -14,37 +14,27 @@ Source4: %{name}.timer
 
 BuildArch: noarch
 BuildRequires: systemd
-Requires: epel-release
 Requires: python34-requests
 Requires: crontabs
 
 %description
 A simple, user configurable, python script to update a route 53 record set with your current public IP.
 
-%prep
-#%autosetup
-
 %install
-mkdir -p %{buildroot}%{_sysconfdir}/cron.d
-mkdir -p %{buildroot}%{_localstatedir}/log/%{name}
-mkdir -p %{buildroot}%{_sysconfdir}/%{name}
-
-cp -a %{Source0} %{buildroot}%{_sysconfdir}/%{name}/%{Source0}
-cp -a %{Source1} %{buildroot}%{_sysconfdir}/cron.d/%{name}
-cp -a %{Source2} %{buildroot}%{_bindir}/%{name}
-cp -a %{Source3} %{buildroot}%{_unitdir}/%{Source3}
-cp -a %{Source4} %{buildroot}%{_unitdir}}/%{Source4}
-
+%{__install} -D %{SOURCE0} %{buildroot}%{_sysconfdir}/%{name}/%{name}.conf
+%{__install} -D %{SOURCE1} %{buildroot}%{_sysconfdir}/cron.d/%{name}
+%{__install} -D %{SOURCE2} %{buildroot}%{_bindir}/%{name}
+%{__install} -D %{SOURCE3} %{buildroot}%{_unitdir}/%{name}.service
+%{__install} -D %{SOURCE4} %{buildroot}%{_unitdir}/%{name}.timer
 
 %clean
 rm -rf %{buildroot}
 
 %files
-%config(noreplace) %{_sysconfdir}/%{name}/%{SOURCE0}
+%config(noreplace) %{_sysconfdir}/%{name}/%{name}.conf
 %config(noreplace) %{_sysconfdir}/cron.d/%{name}
-%{_bindir}/%{Source2}
-%{_unitdir}/%{Source3}
-%{_unitdir}/%{Source4}
-%{_localstatedir}/log/%{name}
+%{_bindir}/%{name}
+%{_unitdir}/%{name}.service
+%{_unitdir}/%{name}.timer
 
 %changelog
