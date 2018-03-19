@@ -14,7 +14,6 @@ Source4: systemd/%{name}.timer
 
 BuildArch: noarch
 BuildRequires: systemd
-Requires: python34-requests
 Requires: crontabs
 
 %description
