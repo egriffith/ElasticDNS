@@ -1,16 +1,16 @@
 Name: elasticdns
-Version: 1.0.0
+Version: 1.0.1
 Release: 1%{?dist}
 
 Summary: Dynamic DNS Using Amazon Route 53
 URL: https://github.com/egriffith/ElasticDNS
 
 License: MIT
-Source0: %{name}.conf
-Source1: %{name}.cron
-Source2: %{name}.py
-Source3: %{name}.service
-Source4: %{name}.timer
+Source0: src/%{name}.conf
+Source1: cron/%{name}.cron
+Source2: src/%{name}.py
+Source3: systemd/%{name}.service
+Source4: systemd/%{name}.timer
 
 BuildArch: noarch
 BuildRequires: systemd
