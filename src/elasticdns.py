@@ -99,9 +99,10 @@ def updateRecord(configDict, ipAddr):
         configDict['Comment'] = "Updating record at: " + str(datetime.datetime.now())
 
     if configDict['Profile'] == "":
-        configDict['Profile'] = "default"
-
-    botoSession = boto3.Session(profile_name=configDict['Profile'])
+        botoSession = boto3.Session()
+    else:
+        botoSession = boto3.Session(profile_name=configDict['Profile'])
+        
     client = botoSession.client("route53")
     response = client.change_resource_record_sets(
     HostedZoneId=configDict['HostedZoneId'],
