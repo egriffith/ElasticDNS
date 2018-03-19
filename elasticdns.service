@@ -3,7 +3,7 @@ Description=Updates a Route53 record set with the system's current public IP
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/sh -c "elasticdns.py"
+ExecStart=/usr/bin/elasticdns
 
 [Install]
 WantedBy=multi-user.target

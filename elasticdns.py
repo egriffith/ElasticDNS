@@ -7,6 +7,7 @@ import sys
 import requests
 import ipaddress
 import datetime
+from pathlib import Path
 
 def main(argv):
     arglist = buildArgParser(argv)
@@ -22,25 +23,31 @@ def main(argv):
 
 def buildArgParser(argv):
     parser = argparse.ArgumentParser(description="Update a Route53 DNS record based upon current public IP.")
-    parser.add_argument('--config', '-c', dest="configFilePath", default="elasticdns.conf", help="Path to the configuration file for each run.")
-    parser.add_argument("--iplog", "-i", dest="ipLogFilePath", default="elasticdns.ip", help="Path to where the previous ip should be stored at.")
+    parser.add_argument('--config', '-c', dest="configFilePath", default="/etc/elasticdns/elasticdns.conf", help="Path to the configuration file for the current run.")
+    parser.add_argument("--iplog", "-i", dest="ipLogFilePath", default="/var/log/elasticdns/elasticdns.ip", help="Path to where the previous ip should be stored.")
 
     return parser.parse_args()
 
 def parseConfig(configFilePath):
-    config = configparser.ConfigParser()
-    config.read(configFilePath)
+    if Path(configFilePath).is_file():
+        config = configparser.ConfigParser()
+        config.read(configFilePath)
 
-    recordHeader = config.sections()[0]
+        recordHeader = config.sections()[0]
 
-    configDict = {"HostedZoneId": config[recordHeader]["HostedZoneId"],
+        configDict = {"HostedZoneId": config[recordHeader]["HostedZoneId"],
                   "RecordSet": config[recordHeader]["RecordSet"],
                   "TTL": int(config[recordHeader]["TTL"]),
                   "Type": config[recordHeader]["Type"],
+                  "Profile": config[recordHeader]["Profile"],
                   "Comment": config[recordHeader]["Comment"]          
                 }
     
-    return configDict
+        return configDict
+
+    else:
+        print("Config file not found at path: ", configFilePath, ". Exiting.")
+        sys.exit(1)
 
 def logCurrentIP(ipLogFilePath, ipAddr):
     with open(ipLogFilePath, "w") as ipLog:
@@ -51,7 +58,7 @@ def readLastKnownIP(ipLogFilePath, newIP):
         with open(ipLogFilePath, 'r') as ipLog:
             oldIP = ipLog.read()
     except FileNotFoundError:
-        oldIP = ""
+        oldIP = "(blank)"
 
     if oldIP == newIP:
         print("The last IP that was logged matches our current public IP. Assuming records are up to date. Exitting.")
@@ -91,7 +98,11 @@ def updateRecord(configDict, ipAddr):
     if configDict['Comment'] == "":
         configDict['Comment'] = "Updating record at: " + str(datetime.datetime.now())
 
-    client = boto3.client("route53")
+    if configDict['Profile'] == "":
+        configDict['Profile'] = "default"
+
+    botoSession = boto3.Session(profile_name=configDict['Profile'])
+    client = botoSession.client("route53")
     response = client.change_resource_record_sets(
     HostedZoneId=configDict['HostedZoneId'],
     ChangeBatch={
