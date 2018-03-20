@@ -7,6 +7,7 @@ import sys
 import requests
 import ipaddress
 import datetime
+import os
 from pathlib import Path
 
 def main(argv):
@@ -50,6 +51,7 @@ def parseConfig(configFilePath):
         sys.exit(1)
 
 def logCurrentIP(ipLogFilePath, ipAddr):
+    os.makedirs(os.path.dirname(ipLogFilePath), exist_ok=True)
     with open(ipLogFilePath, "w") as ipLog:
         ipLog.write(ipAddr)
 
@@ -61,7 +63,7 @@ def readLastKnownIP(ipLogFilePath, newIP):
         oldIP = "(blank)"
 
     if oldIP == newIP:
-        print("The last IP that was logged matches our current public IP. Assuming records are up to date. Exitting.")
+        print("The last IP that was logged matches our current public IP. Assuming records are up to date. Exiting.")
         sys.exit(0)
     else:
         print("New IP: ", newIP, " does not match previous IP: ", oldIP, ", Updating records.")
