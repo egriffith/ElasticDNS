@@ -1,14 +1,24 @@
 #! /usr/bin/env python3
 
-import boto3
 import configparser
 import argparse
 import sys
-import requests
 import ipaddress
 import datetime
 import os
 from pathlib import Path
+
+try:
+    import boto3
+except ImportError:
+    print("FATAL: 'boto3' python3 module not available. Exitting.")
+    sys.exit(1)
+
+try:
+    import requests
+except ImportError:
+    print("FATAL: 'requests' python3 module not available. Exitting.")
+    sys.exit(1)
 
 def main(argv):
     arglist = buildArgParser(argv)
