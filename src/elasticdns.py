@@ -34,8 +34,15 @@ def main(argv):
 
 def buildArgParser(argv):
     parser = argparse.ArgumentParser(description="Update a Route53 DNS record based upon current public IP.")
-    parser.add_argument('--config', '-c', dest="configFilePath", default="/etc/elasticdns/elasticdns.conf", help="Path to the configuration file for the current run.")
-    parser.add_argument("--iplog", "-i", dest="ipLogFilePath", default="/var/log/elasticdns/elasticdns.ip", help="Path to where the previous ip should be stored.")
+    parser.add_argument('--config', '-c', 
+                        dest="configFilePath", 
+                        default="/etc/elasticdns/elasticdns.conf", 
+                        help="Path to the configuration file for the current run.")
+
+    parser.add_argument("--iplog", "-i", 
+                        dest="ipLogFilePath", 
+                        default="/var/log/elasticdns/elasticdns.ip", 
+                        help="Path to where the previous ip should be stored.")
 
     return parser.parse_args()
 
