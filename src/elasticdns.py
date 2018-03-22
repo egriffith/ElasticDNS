@@ -11,13 +11,13 @@ from pathlib import Path
 try:
     import boto3
 except ImportError:
-    print("FATAL: 'boto3' python3 module not available. Exitting.")
+    print("FATAL: 'boto3' python3 module not available. Exiting.")
     sys.exit(1)
 
 try:
     import requests
 except ImportError:
-    print("FATAL: 'requests' python3 module not available. Exitting.")
+    print("FATAL: 'requests' python3 module not available. Exiting.")
     sys.exit(1)
 
 def main(argv):
