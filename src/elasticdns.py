@@ -26,27 +26,53 @@ def main(argv):
     ipAddr = str(getIP())
     readLastKnownIP(arglist.ipLogFilePath, ipAddr)
     
-    configDict = parseConfig(arglist.configFilePath)
+    if arglist.environmental == True:
+        configDict = parseConfigEnv()
+    else:
+        configDict = parseConfigFile(arglist.configFilePath)
+    
+    if arglist.dryrun == True:
+        dryRunOutput(configDict, ipAddr)
+        sys.exit(0)
+        
     updateRecord(configDict, ipAddr)
-
 
     logCurrentIP(arglist.ipLogFilePath,ipAddr)
 
 def buildArgParser(argv):
     parser = argparse.ArgumentParser(description="Update a Route53 DNS record based upon current public IP.")
-    parser.add_argument('--config', '-c', 
-                        dest="configFilePath", 
+    parser.add_argument('--config', '-c',
+                        dest="configFilePath",
                         default="/etc/elasticdns/elasticdns.conf", 
                         help="Path to the configuration file for the current run.")
 
-    parser.add_argument("--iplog", "-i", 
+    parser.add_argument("--iplog", "-i",
                         dest="ipLogFilePath", 
                         default="/var/log/elasticdns/elasticdns.ip", 
                         help="Path to where the previous ip should be stored.")
+    
+    parser.add_argument('--environmental', 
+                        dest="environmental",
+                        action="store_true",
+                        help="Declare whether we should read configuration options from environment variables.")
+    
+    parser.add_argument('--dryrun', 
+                        dest="dryrun",
+                        action="store_true",
+                        help="Turns on dryrun mode. Dryrun mode will output the changes that would be made without actually making them.")
 
     return parser.parse_args()
 
-def parseConfig(configFilePath):
+def parseConfigEnv():
+    configDict={"HostedZoneId": os.environ.get("EDNS_HostedZoneId"),
+                "RecordSet": os.environ.get("EDNS_RecordSet"),
+                "TTL": int(os.environ.get("EDNS_TTL")),
+                "Profile": os.environ.get("EDNS_Profile", ""),
+                "Comment": os.environ.get("EDNS_Comment","")
+    }
+    return configDict
+
+def parseConfigFile(configFilePath):
     if Path(configFilePath).is_file():
         config = configparser.ConfigParser()
         config.read(configFilePath)
@@ -146,5 +172,13 @@ def updateRecord(configDict, ipAddr):
     )
     return 0
 
+def dryRunOutput(configDict, ipAddr):
+    print("Our validated IP is:", ipAddr)
+    
+    for key, value in configDict.items():
+        print(key," = ", value)
+    
+    return 0
+    
 if __name__ == "__main__":
    main(sys.argv[1:])
