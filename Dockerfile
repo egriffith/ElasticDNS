@@ -3,7 +3,7 @@ LABEL maintainer="EGriffith92@gmail.com"
 LABEL repository="https://github.com/egriffith/ElasticDNS"
 
 WORKDIR /app/
-COPY ./Version src/requirements.txt src/elasticdns.ip src/elasticdns.py src/elasticdns.conf ./
+COPY ./VERSION src/requirements.txt src/elasticdns.ip src/elasticdns.py src/elasticdns.conf ./
 
 RUN chown root:root * && chmod 755 * && chown nobody:nobody elasticdns.ip 
 
