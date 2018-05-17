@@ -1,11 +1,12 @@
 #! /usr/bin/env sh
 
-set -ex
+set -e
+
 # SET THE FOLLOWING VARIABLES
 IMAGE=elasticdns
 # ensure we're up to date
 git pull
-# bump version
+# get version
 version=`cat VERSION`
 echo "version: $version"
 # run build
