@@ -21,40 +21,69 @@ except ImportError:
     sys.exit(1)
 
 def main(argv):
-    arglist = buildArgParser(argv)
+    argList = buildArgParser(argv)
     
     ipAddr = str(getIP())
-    readLastKnownIP(arglist.ipLogFilePath, ipAddr)
+    readLastKnownIP(argList.ipLogFilePath, ipAddr)
     
-    if arglist.environmental == True:
-        configDict = parseConfigEnv()
-    else:
-        configDict = parseConfigFile(arglist.configFilePath)
+    configDict = parseConfig(argList)
     
-    if arglist.dryrun == True:
+    if argList.dryrun == True:
         dryRunOutput(configDict, ipAddr)
         sys.exit(0)
         
     updateRecord(configDict, ipAddr)
 
-    logCurrentIP(arglist.ipLogFilePath,ipAddr)
+    logCurrentIP(argList.ipLogFilePath,ipAddr)
 
 def buildArgParser(argv):
     parser = argparse.ArgumentParser(description="Update a Route53 DNS record based upon current public IP.")
-    parser.add_argument('--config', '-c',
+    parser.add_argument('--config',
                         dest="configFilePath",
-                        default="/etc/elasticdns/elasticdns.conf", 
-                        help="Path to the configuration file for the current run.")
+                        default=None,
+                        help="Path to the configuration file for the current run. \
+                        If this is set, we will ignore the other config options except for --iplog.")
 
-    parser.add_argument("--iplog", "-i",
+    parser.add_argument("--iplog",
                         dest="ipLogFilePath", 
-                        default="/var/log/elasticdns/elasticdns.ip", 
-                        help="Path to where the previous ip should be stored.")
+                        default="/app/elasticdns.ip", 
+                        help="Path to where the previous ip should be stored.\
+                        Defaults to /app/elasticdns.ip")
     
-    parser.add_argument('--environmental', 
-                        dest="environmental",
-                        action="store_true",
-                        help="Declare whether we should read configuration options from environment variables.")
+    parser.add_argument("--zone-id",
+                        dest="zone_id",
+                        default="",
+                        help="The Route53 Hosted Zone Id to reference.\
+                        Example: 'AAAAAAAAAAAAAA' ")
+                        
+    parser.add_argument("--record",
+                        dest="record_set",
+                        default="",
+                        help="The Resource Record Set inside the hosted zone.\
+                        Example: 'test.example.com' ")
+    
+    parser.add_argument("--type",
+                        dest="record_type", 
+                        default="A", 
+                        help="The record type we are updating. Currently defaults to 'A'.\
+                        AAAA unsupported at this time.")
+    
+    parser.add_argument("--ttl",
+                        dest="record_ttl", 
+                        default="300", 
+                        help="The record's TTL in seconds. Defaults to 300 seconds.")
+    
+    parser.add_argument("--profile",
+                        dest="profile", 
+                        default="", 
+                        help="Only useful if you've set up ~/.aws/credentials file. \
+                        If so, use this to pick which IAM profile is used by boto3. \
+                        Defaults to the 'default' profile.")
+    
+    parser.add_argument("--comment",
+                        dest="comment", 
+                        default="Updating record at: " + str(datetime.datetime.now()), 
+                        help="An optional comment for the update. Defaults to current date and time.")
     
     parser.add_argument('--dryrun', 
                         dest="dryrun",
@@ -63,14 +92,19 @@ def buildArgParser(argv):
 
     return parser.parse_args()
 
-def parseConfigEnv():
-    configDict={"HostedZoneId": os.environ.get("EDNS_HostedZoneId"),
-                "RecordSet": os.environ.get("EDNS_RecordSet"),
-                "TTL": int(os.environ.get("EDNS_TTL", "300")),
-                "Type": os.environ.get("EDNS_Type", "A"), 
-                "Profile": os.environ.get("EDNS_Profile", ""),
-                "Comment": os.environ.get("EDNS_Comment", "")
-    }
+def parseConfig(argList):
+    
+    if argList.configFilePath == None:
+        configDict = parseConfigArgs(argList)
+    else:
+        if Path(argList.configFilePath).is_file():
+            configDict = parseConfigFile(argList.configFilePath)
+        else:
+            print("A config path was provided, but the file specified cannot be found. We are bailing out to be safe.")
+            sys.exit(1)
+                
+    sanityCheckConfig(configDict)
+    
     return configDict
 
 def parseConfigFile(configFilePath):
@@ -80,7 +114,8 @@ def parseConfigFile(configFilePath):
 
         recordHeader = config.sections()[0]
 
-        configDict = {"HostedZoneId": config[recordHeader]["HostedZoneId"],
+        configDict = {
+                  "HostedZoneId": config[recordHeader]["HostedZoneId"],
                   "RecordSet": config[recordHeader]["RecordSet"],
                   "TTL": int(config[recordHeader]["TTL"]),
                   "Type": config[recordHeader]["Type"],
@@ -92,6 +127,26 @@ def parseConfigFile(configFilePath):
 
     else:
         print("Config file not found at path: ", configFilePath, ". Exiting.")
+        sys.exit(1)
+
+def parseConfigArgs(argList):
+    configDict = {
+        "HostedZoneId": str(argList.zone_id),
+        "RecordSet": str(argList.record_set),
+        "TTL": int(argList.record_ttl),
+        "Type": str(argList.record_type),
+        "Profile": str(argList.profile),
+        "Comment": str(argList.comment)
+    }
+    
+    return configDict
+
+def sanityCheckConfig(configDict):
+    if configDict['HostedZoneId'] == "" or configDict['RecordSet'] == "":
+        print("Either HostedZone or RecordSet are blank. These are mandatory and do not have default values.\n\
+        Please make sure they are configured either via arguements or a valid config file.\n\
+        Exitting.")
+        
         sys.exit(1)
 
 def logCurrentIP(ipLogFilePath, ipAddr):

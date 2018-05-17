@@ -2,18 +2,13 @@ FROM alpine
 LABEL maintainer="EGriffith92@gmail.com"
 LABEL repository="https://github.com/egriffith/ElasticDNS"
 
-RUN apk update && apk add python3
-
 WORKDIR /app/
-COPY ./Version .
-COPY src/requirements.txt .
-COPY src/elasticdns.ip .
-COPY src/elasticdns.py .
+COPY ./Version src/requirements.txt src/elasticdns.ip src/elasticdns.py src/elasticdns.conf ./
 
-RUN chown root:root * && chmod 755 * && chown nobody:nobody elasticdns.ip
+RUN chown root:root * && chmod 755 * && chown nobody:nobody elasticdns.ip 
 
-RUN pip3 install -r requirements.txt
+RUN apk add --no-cache python3 && pip3 --no-cache-dir install -r requirements.txt
 
 USER nobody
-ENTRYPOINT ["./elasticdns.py"]
-CMD ["--iplog /app/elasticdns.ip --environmental"]
+#ENTRYPOINT ["./elasticdns.py"]
+CMD ["./elasticdns.py"]
