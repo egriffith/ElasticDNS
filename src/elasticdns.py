@@ -66,9 +66,10 @@ def buildArgParser(argv):
 def parseConfigEnv():
     configDict={"HostedZoneId": os.environ.get("EDNS_HostedZoneId"),
                 "RecordSet": os.environ.get("EDNS_RecordSet"),
-                "TTL": int(os.environ.get("EDNS_TTL")),
+                "TTL": int(os.environ.get("EDNS_TTL", "300")),
+                "Type": os.environ.get("EDNS_Type", "A"), 
                 "Profile": os.environ.get("EDNS_Profile", ""),
-                "Comment": os.environ.get("EDNS_Comment","")
+                "Comment": os.environ.get("EDNS_Comment", "")
     }
     return configDict
 
