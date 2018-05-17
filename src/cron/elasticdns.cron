@@ -1,4 +1,4 @@
 # ElasticDNS cron file. Recommended to use the elasticdns timer and unit file if your distro uses systemd.
 # If your distro does not use systemd, a cron file is provided for convenience. Uncomment the line below to enable.
 
-#0 0/5 0 ? * * * root /usr/bin/elasticdns
+#0 0/5 0 ? * * * root "/usr/bin/elasticdns --config /etc/elasticdns/elasticdns.conf"
