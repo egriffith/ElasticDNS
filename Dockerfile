@@ -10,5 +10,5 @@ RUN chown root:root * && chmod 755 * && chown nobody:nobody elasticdns.ip
 RUN apk add --no-cache python3 && pip3 --no-cache-dir install -r requirements.txt
 
 USER nobody
-#ENTRYPOINT ["./elasticdns.py"]
-CMD ["./elasticdns.py"]
+ENTRYPOINT ["./elasticdns.py"]
+CMD ["-h"]
