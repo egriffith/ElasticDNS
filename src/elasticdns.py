@@ -78,7 +78,7 @@ def buildArgParser(argv):
                         default="", 
                         help="Only useful if you've set up ~/.aws/credentials file. \
                         If so, use this to pick which IAM profile is used by boto3. \
-                        Defaults to the 'default' profile.")
+                        Otherwise boto3 will run through its standard process to find credentials.")
     
     parser.add_argument("--comment",
                         dest="comment", 
