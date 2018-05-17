@@ -50,14 +50,14 @@ def buildArgParser(argv):
                         help="Path to where the previous ip should be stored.\
                         Defaults to /app/elasticdns.ip")
     
-    parser.add_argument("--zone-id",
-                        dest="zone_id",
+    parser.add_argument("--zone",
+                        dest="zone",
                         default="",
                         help="The Route53 Hosted Zone Id to reference.\
                         Example: 'AAAAAAAAAAAAAA' ")
                         
     parser.add_argument("--record",
-                        dest="record_set",
+                        dest="record",
                         default="",
                         help="The Resource Record Set inside the hosted zone.\
                         Example: 'test.example.com' ")
@@ -131,8 +131,8 @@ def parseConfigFile(configFilePath):
 
 def parseConfigArgs(argList):
     configDict = {
-        "HostedZoneId": str(argList.zone_id),
-        "RecordSet": str(argList.record_set),
+        "HostedZoneId": str(argList.zone),
+        "RecordSet": str(argList.record),
         "TTL": int(argList.record_ttl),
         "Type": str(argList.record_type),
         "Profile": str(argList.profile),

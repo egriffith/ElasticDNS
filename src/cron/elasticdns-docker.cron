@@ -1,0 +1,4 @@
+# ElasticDNS cron file. Recommended to use the elasticdns timer and unit file if your distro uses systemd.
+# If your distro does not use systemd, a cron file is provided for convenience. Uncomment the line below to enable.
+
+#0/5 * * * * root "docker start elasticdns"

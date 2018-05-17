@@ -38,4 +38,12 @@ systemctl enable elasticdns.timer --now
 
 as root. This will run the script and check your current IP every five minutes.
 
-This script is meant to be run as a permanent user, by default this user is root. Regardless of the user that this script is running as, you must have valid aws credentials defined in the .aws/credentials or .aws/config file of that executing user's home directory. Should these credentials not be present,boto3 will also attempt to use environment variables or an IAM Instance Profile role for credentials. For a full breakdown of the order various credentials will be tried in, please see the boto3 documentation on credentials. 
+This script is meant to be run as a permanent user, by default this user is root. Regardless of the user that this script is running as, you must have valid aws credentials defined in the ~/.aws/credentials or ~/.aws/config file of that executing user's home directory. 
+Should these credentials not be present,boto3 will also attempt to use environment variables or an IAM Instance Profile role for credentials. For a full breakdown of the order various credentials will be tried in, please see the boto3 documentation on credentials. 
+
+This setup is also available as a docker container. Easy automated building of the image is available via the build.sh script which just builds the dockerfile, naming the image 'elasticdns' and tagging it with the output of the VERSION file.
+From there you can run the image with "docker run -it -e "AWS_ACCESS_KEY_ID=$access_key" -e "AWS_SECRET_ACCESS_KEY=secret_key" --name elasticdns elasticdns:`cat VERSION` --record test.exampl.ecom --zone AAAAAAAAAAAAAA"
+Credentials are handled via boto3, which means that, rather than the environment variables above, you could also configure credentials by mounting in a credential file to /app/.aws/credentials , or if you are running within AWS, then boto3 will automatically pull credentials from the metadata service.
+
+The docker container exits after running, which means it will only update your IP once. To have continuous updates, you will need to periodically rerun the container with "docker start elasticdns". 
+To aid in this, there are cron jobs and systemd service files under the src/ directory that can be copied to your system to periodically rerun the container. 
