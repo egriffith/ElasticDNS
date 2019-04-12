@@ -50,6 +50,11 @@ def buildArgParser(argv):
                         action="store_true",
                         default=False)
 
+    parser.add_argument('--dryrun',
+                        dest="dryrun",
+                        action="store_true",
+                        help="Turns on dryrun mode. Dryrun mode will output the changes that would be made without actually making them.")
+
     return parser.parse_args()
 
 
@@ -87,6 +92,27 @@ def parseConfigEnv():
 
     return conf
 
+
+
+def parseConfigArgs(argList):
+    configDict = {
+        "HostedZoneId": str(argList.zone),
+        "RecordSet": str(argList.record),
+        "TTL": int(argList.record_ttl),
+        "Type": str(argList.record_type),
+        "Profile": str(argList.profile),
+        "Comment": str(argList.comment)
+    }
+    
+    return configDict
+
+def sanityCheckConfig(configDict):
+    if configDict['HostedZoneId'] == "" or configDict['RecordSet'] == "":
+        print("Either HostedZone or RecordSet are blank. These are mandatory and do not have default values.\n\
+        Please make sure they are configured either via arguements or a valid config file.\n\
+        Exitting.")
+        
+        sys.exit(1)
 
 def logCurrentIP(ipLogFilePath, ipAddr):
     os.makedirs(os.path.dirname(ipLogFilePath), exist_ok=True)
@@ -165,6 +191,13 @@ def updateRecord(configDict, ipAddr):
     )
 
     return 0
+
+
+def dryRunOutput(configDict, ipAddr):
+    print("Our validated IP is:", ipAddr)
+    
+    for key, value in configDict.items():
+        print(key," = ", value)
 
 
 if __name__ == "__main__":
