@@ -1,76 +1,98 @@
 #! /usr/bin/env python3
 
-import configparser
+import logging
 import argparse
 import sys
 import ipaddress
 import datetime
 import os
-from pathlib import Path
+import time
 
 try:
     import boto3
 except ImportError:
-    print("FATAL: 'boto3' python3 module not available. Please install it with your package manager or pip3. Exiting.")
-    sys.exit(1)
+    raise ImportError("FATAL: 'boto3' python3 module not available. Please install it with your package manager or pip3. Exiting.")
+
 
 try:
     import requests
 except ImportError:
-    print("FATAL: 'requests' python3 module not available. Please install it with your package manager or pip3. Exiting.")
-    sys.exit(1)
+    raise ImportError("FATAL: 'requests' python3 module not available. Please install it with your package manager or pip3. Exiting.")
+
 
 def main(argv):
+    def container_main(config):
+        while True:
+            ipAddr = str(getIP())
+            readLastKnownIP(config["IpLogFile"], ipAddr)
+            updateRecord(config, ipAddr)
+            logCurrentIP(config["IpLogFile"], ipAddr)
+            time.sleep(int(config["SleepTimer"]))
+
     arglist = buildArgParser(argv)
-    
-    ipAddr = str(getIP())
-    readLastKnownIP(arglist.ipLogFilePath, ipAddr)
-    
-    configDict = parseConfig(arglist.configFilePath)
-    updateRecord(configDict, ipAddr)
 
+    config = parseConfigEnv()
 
-    logCurrentIP(arglist.ipLogFilePath,ipAddr)
+    if arglist.inContainer:
+        container_main(config)
+    else:
+        ipAddr = str(getIP())
+        readLastKnownIP(config["IpLogFile"], ipAddr)
+        updateRecord(config, ipAddr)
+        logCurrentIP(config["IpLogFile"], ipAddr)
+
 
 def buildArgParser(argv):
     parser = argparse.ArgumentParser(description="Update a Route53 DNS record based upon current public IP.")
-    parser.add_argument('--config', '-c', 
-                        dest="configFilePath", 
-                        default="/etc/elasticdns/elasticdns.conf", 
-                        help="Path to the configuration file for the current run.")
 
-    parser.add_argument("--iplog", "-i", 
-                        dest="ipLogFilePath", 
-                        default="/var/log/elasticdns/elasticdns.ip", 
-                        help="Path to where the previous ip should be stored.")
+    parser.add_argument("--container",
+                        dest="inContainer",
+                        action="store_true",
+                        default=False)
 
     return parser.parse_args()
 
-def parseConfig(configFilePath):
-    if Path(configFilePath).is_file():
-        config = configparser.ConfigParser()
-        config.read(configFilePath)
 
-        recordHeader = config.sections()[0]
+def parseConfigEnv():
+    conf = dict()
+    conf["HostedZoneId"] = os.getenv("ELASTICDNS_HOSTZONEID")
+    conf["RecordSet"] = os.getenv("ELASTICDNS_RECORDSET")
+    conf["Type"] = os.getenv("ELASTICDNS_RECORDTYPE")
+    conf["TTL"] = os.getenv("ELASTICDNS_TTL", "600")
+    conf["Profile"] = os.getenv("ELASTICDNS_PROFILE")
+    conf["Comment"] = os.getenv("ELASTICDNS_COMMENT")
+    conf["SleepTimer"] = os.getenv("ELASTICDNS_SLEEP_SECONDS")
+    conf["IpLogFile"] = os.getenv("ELASTICDNS_IPLOG")
 
-        configDict = {"HostedZoneId": config[recordHeader]["HostedZoneId"],
-                  "RecordSet": config[recordHeader]["RecordSet"],
-                  "TTL": int(config[recordHeader]["TTL"]),
-                  "Type": config[recordHeader]["Type"],
-                  "Profile": config[recordHeader]["Profile"],
-                  "Comment": config[recordHeader]["Comment"]          
-                }
-    
-        return configDict
+    if conf["HostedZoneId"] == "" or conf["HostedZoneId"] is None:
+        raise Exception("HostedZoneId input was blank or empty. Script cannot continue.")
 
-    else:
-        print("Config file not found at path: ", configFilePath, ". Exiting.")
-        sys.exit(1)
+    if conf["RecordSet"] == "" or conf["RecordSet"] is None:
+        raise Exception("RecordSet input was blank or empty. Script cannot continue.")
+
+    if conf["Type"] == "" or conf["Type"] is None:
+        raise Exception("RecordType input was blank or empty. Script cannot continue.")
+
+    if conf["TTL"] == "" or conf["TTL"] is None:
+        conf["TTL"] = 600
+
+    if conf["SleepTimer"] == "" or conf["SleepTimer"] is None:
+        conf["SleepTimer"] = 300
+
+    if conf["Comment"] == "" or conf["Comment"] is None:
+        conf["Comment"] = "Record last updated at: " + str(datetime.datetime.now())
+
+    if conf["IpLogFile"] == "" or conf["IpLogFile"] is None:
+        conf["IpLogFile"] = "/var/log/elasticdns/elasticdns.ip"
+
+    return conf
+
 
 def logCurrentIP(ipLogFilePath, ipAddr):
     os.makedirs(os.path.dirname(ipLogFilePath), exist_ok=True)
     with open(ipLogFilePath, "w") as ipLog:
         ipLog.write(ipAddr)
+
 
 def readLastKnownIP(ipLogFilePath, newIP):
     try:
@@ -80,44 +102,41 @@ def readLastKnownIP(ipLogFilePath, newIP):
         oldIP = "(blank)"
 
     if oldIP == newIP:
-        print("The last IP that was logged matches our current public IP. Assuming records are up to date. Exiting.")
-        sys.exit(0)
+        print("The last IP that was logged matches our current public IP. Assuming records are up to date.")
     else:
         print("New IP: ", newIP, " does not match previous IP: ", oldIP, ", Updating records.")
         return 0
 
+
 def getIP():
+
+    def validateIP(address):
+        try:
+            ipaddress.ip_address(address)
+        except ValueError:
+            print("Response does not pass validation: ", address)
+            return False
+
+        return True
+
     try:
         response = requests.get('https://checkip.amazonaws.com')
     except ConnectionError:
-            print("Connection to https://checkip.amazonaws.com failed.")
-            sys.exit(1)
+            raise Exception("Connection to https://checkip.amazonaws.com failed.")
     except TimeoutError:
-            print("Connection to https://checkip.amazonaws.com timed out.")
-            sys.exit(1)
+            raise Exception("Connection to https://checkip.amazonaws.com timed out.")
 
     response = response.text.strip("\n")
 
-    if validateIP(response) == True:
+    if validateIP(response) is True:
         print("Our current IP is: ", response)
         return response
     else:
-        sys.exit(1)
+        raise Exception("IP we received from 'https://checkip.amazonaws.com' did not pass validation.")
 
-def validateIP(address):
-    try:
-        ipaddress.ip_address(address)
-    except ValueError:
-        print("Response does not pass validation: ", address)
-        return False
-
-    return True
 
 def updateRecord(configDict, ipAddr):
-    if configDict['Comment'] == "":
-        configDict['Comment'] = "Updating record at: " + str(datetime.datetime.now())
-
-    if configDict['Profile'] == "":
+    if configDict['Profile'] == "" or configDict['Profile'] == None:
         botoSession = boto3.Session()
     else:
         botoSession = boto3.Session(profile_name=configDict['Profile'])
@@ -126,17 +145,17 @@ def updateRecord(configDict, ipAddr):
     response = client.change_resource_record_sets(
     HostedZoneId=configDict['HostedZoneId'],
     ChangeBatch={
-        'Comment': configDict['Comment'],
+        'Comment': str(configDict['Comment']),
         'Changes': [
             {
                 'Action': 'UPSERT',
                 'ResourceRecordSet': {
-                    'Name': configDict['RecordSet'],
-                    'Type': configDict['Type'],
-                    'TTL': configDict['TTL'],
+                    'Name': str(configDict['RecordSet']),
+                    'Type': str(configDict['Type']),
+                    'TTL': int(configDict['TTL']),
                     'ResourceRecords': [
                         {
-                            'Value': ipAddr
+                            'Value': str(ipAddr)
                         },
                     ],
                 }
@@ -144,7 +163,9 @@ def updateRecord(configDict, ipAddr):
             ]
         }
     )
+
     return 0
 
+
 if __name__ == "__main__":
-   main(sys.argv[1:])
+    main(sys.argv[1:])
