@@ -50,6 +50,11 @@ def buildArgParser(argv):
                         action="store_true",
                         default=False)
 
+    parser.add_argument("--no-container",
+                        dest="inContainer",
+                        action="store_false",
+                        default=False)
+
     parser.add_argument('--dryrun',
                         dest="dryrun",
                         action="store_true",
