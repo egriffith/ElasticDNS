@@ -60,14 +60,14 @@ def buildArgParser(argv):
 
 def parseConfigEnv():
     conf = dict()
-    conf["HostedZoneId"] = os.getenv("ELASTICDNS_HOSTZONEID")
-    conf["RecordSet"] = os.getenv("ELASTICDNS_RECORDSET")
-    conf["Type"] = os.getenv("ELASTICDNS_RECORDTYPE")
+    conf["HostedZoneId"] = os.getenv("ELASTICDNS_HOSTZONE_ID")
+    conf["RecordSet"] = os.getenv("ELASTICDNS_RECORD_SET")
+    conf["Type"] = os.getenv("ELASTICDNS_RECORD_TYPE")
     conf["TTL"] = os.getenv("ELASTICDNS_TTL", "600")
     conf["Profile"] = os.getenv("ELASTICDNS_PROFILE")
     conf["Comment"] = os.getenv("ELASTICDNS_COMMENT")
     conf["SleepTimer"] = os.getenv("ELASTICDNS_SLEEP_SECONDS")
-    conf["IpLogFile"] = os.getenv("ELASTICDNS_IPLOG")
+    conf["IpLogFile"] = os.getenv("ELASTICDNS_IP_LOG")
 
     if conf["HostedZoneId"] == "" or conf["HostedZoneId"] is None:
         raise Exception("HostedZoneId input was blank or empty. Script cannot continue.")
@@ -93,7 +93,6 @@ def parseConfigEnv():
     return conf
 
 
-
 def parseConfigArgs(argList):
     configDict = {
         "HostedZoneId": str(argList.zone),
@@ -114,24 +113,29 @@ def sanityCheckConfig(configDict):
         
         sys.exit(1)
 
+
 def logCurrentIP(ipLogFilePath, ipAddr):
-    os.makedirs(os.path.dirname(ipLogFilePath), exist_ok=True)
-    with open(ipLogFilePath, "w") as ipLog:
-        ipLog.write(ipAddr)
+    try:
+        os.makedirs(os.path.dirname(ipLogFilePath), exist_ok=True)
+        with open(ipLogFilePath, "w") as ipLog:
+            ipLog.write(ipAddr)
+    except PermissionError:
+        os.environ["ELASTICDNS_LAST_KNOWN_IP"] = ipAddr
 
 
 def readLastKnownIP(ipLogFilePath, newIP):
-    try:
-        with open(ipLogFilePath, 'r') as ipLog:
-            oldIP = ipLog.read()
-    except FileNotFoundError:
-        oldIP = "(blank)"
+    oldIP = os.getenv("ELASTICDNS_LAST_KNOWN_IP")
+    if not oldIP:
+        try:
+            with open(ipLogFilePath, 'r') as ipLog:
+                oldIP = ipLog.read()
+        except FileNotFoundError:
+            oldIP = "(unknown)"
 
     if oldIP == newIP:
         print("The last IP that was logged matches our current public IP. Assuming records are up to date.")
     else:
         print("New IP: ", newIP, " does not match previous IP: ", oldIP, ", Updating records.")
-        return 0
 
 
 def getIP():

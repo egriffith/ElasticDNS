@@ -11,11 +11,6 @@ COPY --chown=elasticdns:nogroup src/elasticdns.py /app/
 
 USER elasticdns
 
-ENV ELASTICDNS_RECORDTYPE=A
-ENV ELASTICDNS_TTL=600
-ENV ELASTICDNS_SLEEP_SECONDS=300
-ENV ELASTICDNS_IPLOG=/app/elasticdns.ip
-
 VOLUME ["/var/log/elasticdns"]
 
 ENTRYPOINT ["python3", "/app/elasticdns.py"]
