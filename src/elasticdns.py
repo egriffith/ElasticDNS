@@ -107,11 +107,9 @@ def parseConfigArgs(argList):
 
 def sanityCheckConfig(configDict):
     if configDict['HostedZoneId'] == "" or configDict['RecordSet'] == "":
-        print("Either HostedZone or RecordSet are blank. These are mandatory and do not have default values.\n\
+        raise Exception("Either HostedZone or RecordSet are blank. These are mandatory and do not have default values.\n\
         Please make sure they are configured either via arguements or a valid config file.\n\
         Exitting.")
-        
-        sys.exit(1)
 
 
 def logCurrentIP(ipLogFilePath, ipAddr):
