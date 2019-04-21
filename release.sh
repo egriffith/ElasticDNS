@@ -6,6 +6,7 @@ set -e
 IMAGE=elasticdns
 
 # ensure we're up to date
+echo "Making sure we're up to date against upstream..."
 git pull
 
 # get version
@@ -24,7 +25,9 @@ version=$currDate"-"$patchLevel
 echo "version: $version"
 echo $version > VERSION
 # run build
+echo "Running test build of container..."
 ./build.sh
+echo "Build successful. Pushing code to repos."
 # tag it
 git add -A
 git commit -m "version $version"
