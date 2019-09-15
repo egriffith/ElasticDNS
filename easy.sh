@@ -25,7 +25,7 @@ elif [ $cred_method = "environment" ]; then
     read access_key
     echo -n "Input AWS Secret Key: "
     read secret_key
-    docker run -it -e "AWS_ACCESS_KEY_ID=$access_key" -e "AWS_SECRET_ACCESS_KEY=secret_key" --name $name elasticdns:`cat VERSION` --record $record --zone $zone
+    docker run -it -e "AWS_ACCESS_KEY_ID=$access_key" -e "AWS_SECRET_ACCESS_KEY=$secret_key" --name $name elasticdns:`cat VERSION` --record $record --zone $zone
 
 elif [ "$cred_method" == "file" ]; then
     echo -n "Input the absolute path to the credential file to bind-mount inside of the container: "
