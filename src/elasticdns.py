@@ -11,13 +11,17 @@ import time
 try:
     import boto3
 except ImportError:
-    raise ImportError("FATAL: 'boto3' python3 module not available. Please install it with your package manager or pip3. Exiting.")
+    raise ImportError(
+        "FATAL: 'boto3' python3 module not available. Please install it with your package manager or pip3. Exiting."
+    )
 
 
 try:
     import requests
 except ImportError:
-    raise ImportError("FATAL: 'requests' python3 module not available. Please install it with your package manager or pip3. Exiting.")
+    raise ImportError(
+        "FATAL: 'requests' python3 module not available. Please install it with your package manager or pip3. Exiting."
+    )
 
 
 def main(argv):
@@ -43,22 +47,24 @@ def main(argv):
 
 
 def buildArgParser(argv):
-    parser = argparse.ArgumentParser(description="Update a Route53 DNS record based upon current public IP.")
+    parser = argparse.ArgumentParser(
+        description="Update a Route53 DNS record based upon current public IP."
+    )
 
-    parser.add_argument("--container",
-                        dest="inContainer",
-                        action="store_true",
-                        default=False)
+    parser.add_argument(
+        "--container", dest="inContainer", action="store_true", default=False
+    )
 
-    parser.add_argument("--no-container",
-                        dest="inContainer",
-                        action="store_false",
-                        default=False)
+    parser.add_argument(
+        "--no-container", dest="inContainer", action="store_false", default=False
+    )
 
-    parser.add_argument('--dryrun',
-                        dest="dryrun",
-                        action="store_true",
-                        help="Turns on dryrun mode. Dryrun mode will output the changes that would be made without actually making them.")
+    parser.add_argument(
+        "--dryrun",
+        dest="dryrun",
+        action="store_true",
+        help="Turns on dryrun mode. Dryrun mode will output the changes that would be made without actually making them.",
+    )
 
     return parser.parse_args()
 
@@ -75,7 +81,9 @@ def parseConfigEnv():
     conf["IpLogFile"] = os.getenv("ELASTICDNS_IP_LOG")
 
     if conf["HostedZoneId"] == "" or conf["HostedZoneId"] is None:
-        raise Exception("HostedZoneId input was blank or empty. Script cannot continue.")
+        raise Exception(
+            "HostedZoneId input was blank or empty. Script cannot continue."
+        )
 
     if conf["RecordSet"] == "" or conf["RecordSet"] is None:
         raise Exception("RecordSet input was blank or empty. Script cannot continue.")
@@ -105,16 +113,19 @@ def parseConfigArgs(argList):
         "TTL": int(argList.record_ttl),
         "Type": str(argList.record_type),
         "Profile": str(argList.profile),
-        "Comment": str(argList.comment)
+        "Comment": str(argList.comment),
     }
-    
+
     return configDict
 
+
 def sanityCheckConfig(configDict):
-    if configDict['HostedZoneId'] == "" or configDict['RecordSet'] == "":
-        raise Exception("Either HostedZone or RecordSet are blank. These are mandatory and do not have default values.\n\
+    if configDict["HostedZoneId"] == "" or configDict["RecordSet"] == "":
+        raise Exception(
+            "Either HostedZone or RecordSet are blank. These are mandatory and do not have default values.\n\
         Please make sure they are configured either via arguements or a valid config file.\n\
-        Exitting.")
+        Exitting."
+        )
 
 
 def logCurrentIP(ipLogFilePath, ipAddr):
@@ -130,19 +141,26 @@ def readLastKnownIP(ipLogFilePath, newIP):
     oldIP = os.getenv("ELASTICDNS_LAST_KNOWN_IP")
     if not oldIP:
         try:
-            with open(ipLogFilePath, 'r') as ipLog:
+            with open(ipLogFilePath, "r") as ipLog:
                 oldIP = ipLog.read()
         except FileNotFoundError:
             oldIP = "(unknown)"
 
     if oldIP == newIP:
-        print("The last IP that was logged matches our current public IP. Assuming records are up to date.")
+        print(
+            "The last IP that was logged matches our current public IP. Assuming records are up to date."
+        )
     else:
-        print("New IP: ", newIP, " does not match previous IP: ", oldIP, ", Updating records.")
+        print(
+            "New IP: ",
+            newIP,
+            " does not match previous IP: ",
+            oldIP,
+            ", Updating records.",
+        )
 
 
 def getIP():
-
     def validateIP(address):
         try:
             ipaddress.ip_address(address)
@@ -153,11 +171,11 @@ def getIP():
         return True
 
     try:
-        response = requests.get('https://checkip.amazonaws.com')
+        response = requests.get("https://checkip.amazonaws.com")
     except ConnectionError:
-            raise Exception("Connection to https://checkip.amazonaws.com failed.")
+        raise Exception("Connection to https://checkip.amazonaws.com failed.")
     except TimeoutError:
-            raise Exception("Connection to https://checkip.amazonaws.com timed out.")
+        raise Exception("Connection to https://checkip.amazonaws.com timed out.")
 
     response = response.text.strip("\n")
 
@@ -165,36 +183,34 @@ def getIP():
         print("Our current IP is: ", response)
         return response
     else:
-        raise Exception("IP we received from 'https://checkip.amazonaws.com' did not pass validation.")
+        raise Exception(
+            "IP we received from 'https://checkip.amazonaws.com' did not pass validation."
+        )
 
 
 def updateRecord(configDict, ipAddr):
-    if configDict['Profile'] == "" or configDict['Profile'] == None:
+    if configDict["Profile"] == "" or configDict["Profile"] == None:
         botoSession = boto3.Session()
     else:
-        botoSession = boto3.Session(profile_name=configDict['Profile'])
-        
+        botoSession = boto3.Session(profile_name=configDict["Profile"])
+
     client = botoSession.client("route53")
     response = client.change_resource_record_sets(
-    HostedZoneId=configDict['HostedZoneId'],
-    ChangeBatch={
-        'Comment': str(configDict['Comment']),
-        'Changes': [
-            {
-                'Action': 'UPSERT',
-                'ResourceRecordSet': {
-                    'Name': str(configDict['RecordSet']),
-                    'Type': str(configDict['Type']),
-                    'TTL': int(configDict['TTL']),
-                    'ResourceRecords': [
-                        {
-                            'Value': str(ipAddr)
-                        },
-                    ],
+        HostedZoneId=configDict["HostedZoneId"],
+        ChangeBatch={
+            "Comment": str(configDict["Comment"]),
+            "Changes": [
+                {
+                    "Action": "UPSERT",
+                    "ResourceRecordSet": {
+                        "Name": str(configDict["RecordSet"]),
+                        "Type": str(configDict["Type"]),
+                        "TTL": int(configDict["TTL"]),
+                        "ResourceRecords": [{"Value": str(ipAddr)}],
+                    },
                 }
-            },
-            ]
-        }
+            ],
+        },
     )
 
     return 0
@@ -202,9 +218,9 @@ def updateRecord(configDict, ipAddr):
 
 def dryRunOutput(configDict, ipAddr):
     print("Our validated IP is:", ipAddr)
-    
+
     for key, value in configDict.items():
-        print(key," = ", value)
+        print(key, " = ", value)
 
 
 if __name__ == "__main__":
