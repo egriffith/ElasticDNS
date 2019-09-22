@@ -4,9 +4,17 @@ phases:
   install:
     runtime-versions:
       docker: 18
-  build:
+  pre_build:
     commands:
       - env
-      - nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://0.0.0.0:2375 --storage-driver=overlay&
-      - timeout 15 sh -c "until docker info; do echo .; sleep 1; done"
-      - make -s login build push
+      - echo "Logging into Amazon Web Services Elastic Container Repository..."
+      - aws ecr get-login --region $(PROJECT_REGION) --no-include-email
+  build:
+    commands:
+      #- nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://0.0.0.0:2375 --storage-driver=overlay&
+      #- timeout 15 sh -c "until docker info; do echo .; sleep 1; done"
+      - echo "Building Docker image..."
+      - docker build --squash -q -t $(PROJECT_NAME):$(CODEBUILD_RESOLVED_SOURCE_VERSION) .
+      - echo "Pushing image to repository... "
+      - docker tag $(PROJECT_NAME):$(CODEBUILD_RESOLVED_SOURCE_VERSION) $(PROJECT_REPOSITORY):$(CODEBUILD_RESOLVED_SOURCE_VERSION)
+      - docker push $(PROJECT_REPOSITORY)

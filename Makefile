@@ -17,7 +17,7 @@ default:
 .PHONY: default build login push install uninstall release
 
 build:
-	@VERSION ?= ${CODEBUILD_RESOLVED_SOURCE_VERSION}
+	@VERSION ?= $(CODEBUILD_RESOLVED_SOURCE_VERSION)
 	if [ -z $$VERSION]; then \
 		${error "Fatal: VERSION was not set via either git log nor reading Codebuild env var."}; \
 	fi
