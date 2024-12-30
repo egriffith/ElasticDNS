@@ -9,4 +9,4 @@ RUN apk add --no-cache $(cat /app/packages.apk)
 
 USER elasticdns
 
-ENTRYPOINT ["python3", "/app/elasticdns.py"]
+CMD ["python3", "/app/elasticdns.py"]
