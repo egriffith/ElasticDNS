@@ -1,0 +1,17 @@
+[Container]
+AutoUpdate=registry
+ContainerName=elasticdns
+Image=elasticdns.image
+ReadOnly=true
+RunInit=true
+
+Environment=ELASTICDNS_HOSTZONE_ID="AAAAAAAAAAAAAAAAAAA"
+Environment=ELASTICDNS_RECORD_SET="www.example.com"
+Environment=ELASTICDNS_TTL=300
+Environment=ELASTICDNS_RECORD_TYPE="A"
+Environment=ELASTICDNS_COMMENT=""
+Environment=ELASTICDNS_SLEEP_SECONDS=300
+Environment=ELASTICDNS_IP_LOG="/var/log/elasticdns/elasticdns.ip"
+Environment=ELASTICDNS_AWS_PROFILE=""
+Environment=AWS_ACCESS_KEY_ID=""
+Environment=AWS_SECRET_ACCESS_KEY=""

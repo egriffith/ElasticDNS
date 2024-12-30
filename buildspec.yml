@@ -11,8 +11,6 @@ phases:
       - aws ecr get-login --region $(PROJECT_REGION) --no-include-email
   build:
     commands:
-      #- nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://0.0.0.0:2375 --storage-driver=overlay&
-      #- timeout 15 sh -c "until docker info; do echo .; sleep 1; done"
       - echo "Building Docker image..."
       - docker build --squash -q -t $(PROJECT_NAME):$(CODEBUILD_RESOLVED_SOURCE_VERSION) .
       - echo "Pushing image to repository... "

@@ -12,9 +12,7 @@ services:
       - ELASTICDNS_TTL=300
       - ELASTICDNS_RECORD_TYPE=A
       - ELASTICDNS_COMMENT=
-      - ELASTICDNS_PROFILE=
       - ELASTICDNS_SLEEP_SECONDS=300
-      - ELASTICDNS_IP_LOG=/var/log/elasticdns/elasticdns.ip
-      - AWS_ACCESS_KEY_ID=
-      - AWS_SECRET_ACCESS_KEY=
-    restart: unless-stopped
+      - ELASTICDNS_AWS_PROFILE=""
+      - AWS_ACCESS_KEY_ID=""
+      - AWS_SECRET_ACCESS_KEY=""

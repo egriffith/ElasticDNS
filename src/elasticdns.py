@@ -1,227 +1,128 @@
 #! /usr/bin/env python3
 
 import logging
-import argparse
 import sys
 import ipaddress
-import datetime
 import os
-import time
-
-try:
-    import boto3
-except ImportError:
-    raise ImportError(
-        "FATAL: 'boto3' python3 module not available. Please install it with your package manager or pip3. Exiting."
-    )
+import boto3
+import requests
+from threading import Event
+import signal
 
 
-try:
-    import requests
-except ImportError:
-    raise ImportError(
-        "FATAL: 'requests' python3 module not available. Please install it with your package manager or pip3. Exiting."
-    )
+should_quit = Event()
+logger = logging.getLogger(__name__)
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
 
-def main(argv):
-    def container_main(config):
-        while True:
-            ipAddr = str(getIP())
-            readLastKnownIP(config["IpLogFile"], ipAddr)
-            updateRecord(config, ipAddr)
-            logCurrentIP(config["IpLogFile"], ipAddr)
-            time.sleep(int(config["SleepTimer"]))
+def main():
+    hosted_zone_id: str = os.environ["ELASTICDNS_HOSTZONE_ID"]
+    record_set_name: str = os.environ["ELASTICDNS_RECORD_SET"]
+    record_set_type: str = os.getenv("ELASTICDNS_RECORD_TYPE", "A")
+    record_set_ttl: int = int(os.getenv("ELASTICDNS_TTL", "300"))
+    update_comment: str = os.getenv("ELASTICDNS_COMMENT", "")
 
-    arglist = buildArgParser(argv)
+    aws_profile: str = os.getenv("ELASTICDNS_AWS_PROFILE", "")
 
-    config = parseConfigEnv()
-
-    if arglist.inContainer:
-        container_main(config)
+    if aws_profile:
+        session = boto3.Session(profile_name=aws_profile)
     else:
-        ipAddr = str(getIP())
-        readLastKnownIP(config["IpLogFile"], ipAddr)
-        updateRecord(config, ipAddr)
-        logCurrentIP(config["IpLogFile"], ipAddr)
+        session = boto3.Session()
+
+    sts = session.client("sts")
+    route53 = session.client("route53")
+
+    last_updated_ip = None
+
+    logger.info("Testing provided/discovered credentials by calling sts:GetCallerIdentity()")
+    logger.info(sts.get_caller_identity())
+
+    while not should_quit.is_set():
+        current_ip = get_current_ip("https://checkip.amazonaws.com")
+        logger.info(f"Received back IP address: {current_ip}")
+
+        if validate_ip(current_ip):
+            if last_updated_ip == current_ip:
+                pass
+            else:
+                resource_records = [{"Value": current_ip}]
+
+                r53_update_record(
+                    route53,
+                    hosted_zone_id=hosted_zone_id,
+                    change_comment=update_comment,
+                    record_set_name=record_set_name,
+                    record_type=record_set_type,
+                    record_ttl=record_set_ttl,
+                    resource_records=resource_records
+                )
+
+                last_updated_ip = current_ip
+
+        should_quit.wait(60)
+
+    sys.exit(0)
 
 
-def buildArgParser(argv):
-    parser = argparse.ArgumentParser(
-        description="Update a Route53 DNS record based upon current public IP."
-    )
-
-    parser.add_argument(
-        "--container", dest="inContainer", action="store_true", default=False
-    )
-
-    parser.add_argument(
-        "--no-container", dest="inContainer", action="store_false", default=False
-    )
-
-    parser.add_argument(
-        "--dryrun",
-        dest="dryrun",
-        action="store_true",
-        help="Turns on dryrun mode. Dryrun mode will output the changes that would be made without actually making them.",
-    )
-
-    return parser.parse_args()
-
-
-def parseConfigEnv():
-    conf = dict()
-    conf["HostedZoneId"] = os.getenv("ELASTICDNS_HOSTZONE_ID")
-    conf["RecordSet"] = os.getenv("ELASTICDNS_RECORD_SET")
-    conf["Type"] = os.getenv("ELASTICDNS_RECORD_TYPE")
-    conf["TTL"] = os.getenv("ELASTICDNS_TTL", "600")
-    conf["Profile"] = os.getenv("ELASTICDNS_PROFILE")
-    conf["Comment"] = os.getenv("ELASTICDNS_COMMENT")
-    conf["SleepTimer"] = os.getenv("ELASTICDNS_SLEEP_SECONDS")
-    conf["IpLogFile"] = os.getenv("ELASTICDNS_IP_LOG")
-
-    if conf["HostedZoneId"] == "" or conf["HostedZoneId"] is None:
-        raise Exception(
-            "HostedZoneId input was blank or empty. Script cannot continue."
-        )
-
-    if conf["RecordSet"] == "" or conf["RecordSet"] is None:
-        raise Exception("RecordSet input was blank or empty. Script cannot continue.")
-
-    if conf["Type"] == "" or conf["Type"] is None:
-        raise Exception("RecordType input was blank or empty. Script cannot continue.")
-
-    if conf["TTL"] == "" or conf["TTL"] is None:
-        conf["TTL"] = 600
-
-    if conf["SleepTimer"] == "" or conf["SleepTimer"] is None:
-        conf["SleepTimer"] = 300
-
-    if conf["Comment"] == "" or conf["Comment"] is None:
-        conf["Comment"] = "Record last updated at: " + str(datetime.datetime.now())
-
-    if conf["IpLogFile"] == "" or conf["IpLogFile"] is None:
-        conf["IpLogFile"] = "/var/log/elasticdns/elasticdns.ip"
-
-    return conf
-
-
-def parseConfigArgs(argList):
-    configDict = {
-        "HostedZoneId": str(argList.zone),
-        "RecordSet": str(argList.record),
-        "TTL": int(argList.record_ttl),
-        "Type": str(argList.record_type),
-        "Profile": str(argList.profile),
-        "Comment": str(argList.comment),
-    }
-
-    return configDict
-
-
-def sanityCheckConfig(configDict):
-    if configDict["HostedZoneId"] == "" or configDict["RecordSet"] == "":
-        raise Exception(
-            "Either HostedZone or RecordSet are blank. These are mandatory and do not have default values.\n\
-        Please make sure they are configured either via arguements or a valid config file.\n\
-        Exitting."
-        )
-
-
-def logCurrentIP(ipLogFilePath, ipAddr):
+def validate_ip(address):
     try:
-        os.makedirs(os.path.dirname(ipLogFilePath), exist_ok=True)
-        with open(ipLogFilePath, "w") as ipLog:
-            ipLog.write(ipAddr)
-    except PermissionError:
-        os.environ["ELASTICDNS_LAST_KNOWN_IP"] = ipAddr
+        ipaddress.ip_address(address)
+    except ValueError:
+        raise Exception("Response does not pass validation: ", address)
+
+    return True
 
 
-def readLastKnownIP(ipLogFilePath, newIP):
-    oldIP = os.getenv("ELASTICDNS_LAST_KNOWN_IP")
-    if not oldIP:
-        try:
-            with open(ipLogFilePath, "r") as ipLog:
-                oldIP = ipLog.read()
-        except FileNotFoundError:
-            oldIP = "(unknown)"
-
-    if oldIP == newIP:
-        print(
-            "The last IP that was logged matches our current public IP. Assuming records are up to date."
-        )
-    else:
-        print(
-            "New IP: ",
-            newIP,
-            " does not match previous IP: ",
-            oldIP,
-            ", Updating records.",
-        )
-
-
-def getIP():
-    def validateIP(address):
-        try:
-            ipaddress.ip_address(address)
-        except ValueError:
-            print("Response does not pass validation: ", address)
-            return False
-
-        return True
-
+def get_current_ip(checkip_url: str):
     try:
-        response = requests.get("https://checkip.amazonaws.com")
+        response = requests.get(checkip_url)
     except ConnectionError:
-        raise Exception("Connection to https://checkip.amazonaws.com failed.")
+        raise Exception(f"Connection to '{checkip_url}' failed.")
     except TimeoutError:
-        raise Exception("Connection to https://checkip.amazonaws.com timed out.")
+        raise Exception(f"Connection to '{checkip_url}' timed out.")
 
     response = response.text.strip("\n")
-
-    if validateIP(response) is True:
-        print("Our current IP is: ", response)
-        return response
-    else:
-        raise Exception(
-            "IP we received from 'https://checkip.amazonaws.com' did not pass validation."
-        )
+    
+    return response
 
 
-def updateRecord(configDict, ipAddr):
-    if configDict["Profile"] == "" or configDict["Profile"] == None:
-        botoSession = boto3.Session()
-    else:
-        botoSession = boto3.Session(profile_name=configDict["Profile"])
-
-    client = botoSession.client("route53")
-    response = client.change_resource_record_sets(
-        HostedZoneId=configDict["HostedZoneId"],
+def r53_update_record(client,
+                      *,
+                      hosted_zone_id: str,
+                      change_comment: str,
+                      record_set_name: str,
+                      record_type: str, 
+                      record_ttl: int,
+                      resource_records: list
+                      ):
+  
+    client.change_resource_record_sets(
+        HostedZoneId=hosted_zone_id,
         ChangeBatch={
-            "Comment": str(configDict["Comment"]),
+            "Comment": change_comment,
             "Changes": [
                 {
                     "Action": "UPSERT",
                     "ResourceRecordSet": {
-                        "Name": str(configDict["RecordSet"]),
-                        "Type": str(configDict["Type"]),
-                        "TTL": int(configDict["TTL"]),
-                        "ResourceRecords": [{"Value": str(ipAddr)}],
+                        "Name": record_set_name,
+                        "Type": record_type,
+                        "TTL": record_ttl,
+                        "ResourceRecords": resource_records,
                     },
                 }
             ],
         },
     )
 
-    return 0
 
+def quit(signo, _frame):
+    logging.info(f"Interrupted by {signo}, shutting down")
+    should_quit.set()
+    
 
-def dryRunOutput(configDict, ipAddr):
-    print("Our validated IP is:", ipAddr)
+if __name__ == '__main__':
+    signal.signal(signal.SIGTERM, quit)
+    signal.signal(signal.SIGINT, quit)
+    signal.signal(signal.SIGHUP, quit)
 
-    for key, value in configDict.items():
-        print(key, " = ", value)
-
-
-if __name__ == "__main__":
-    main(sys.argv[1:])
+    main()
